@@ -13,7 +13,23 @@ Adafruit_ADS1015 ads = Adafruit_ADS1015(0x48);
 WiFiManager wm;
 WiFiUDP udp;
 WiFiUDP udp_server;
+SemaphoreHandle_t lock;
+int servoPos[7];
 
+void TaskUpdateServos(void *pvParameters){
+
+  for(;;){
+    if(xSemaphoreTake(lock,(10/portTICK_PERIOD_MS))){
+      Wire.beginTransmission(3);
+      Wire.write('S');
+      for(int i = 0; i<7;i++){
+        Wire.write(servoPos[i]);
+      }
+      Wire.endTransmission();
+    }
+    vTaskDelay( 100 / portTICK_PERIOD_MS );
+  }
+}
 
 void TaskBlink(void *pvParameters)  // This is a task.
 {
@@ -41,14 +57,19 @@ void TaskReceiveCommands(void *pvPArameters){
     if(packageSize){
       len = udp_server.read(packetBuffer, 255);
       if (len > 0) {
-
         packetBuffer[len] = 0;
-
       }
-
-      Serial.println("Contents:");
-
-      Serial.println(packetBuffer);
+      if(packetBuffer[0]=='S'){
+        if(len!=8){
+          Serial.println("invallid servo command received");
+        }
+        else{
+          for(int i = 1; i<8;i++){
+            servoPos[i-1] = packetBuffer[i];
+          }
+        }
+      }
+      taskYIELD();
     }
     else{
       vTaskDelay( 1 / portTICK_PERIOD_MS ); // wait for one seconds
@@ -66,14 +87,17 @@ void TaskSendChannelData(void *pvParameters)  // This is a task.
 
   for (;;) // A Task shall never return or exit.
   {
+    
     int16_t adc0, adc1, adc2;
-    int8_t chars_read, result;
-    adc0 = ads.readADC_SingleEnded(0);
-    adc1 = ads.readADC_SingleEnded(1);
-    adc2 = ads.readADC_SingleEnded(2);
-    Serial.println("Sending Channel data");
-    result = udp.beginPacket(IPAddress(192,168,5,173),5005);
-    Serial.println(result);
+    if(xSemaphoreTake(lock,(10/portTICK_PERIOD_MS))){
+            adc0 = ads.readADC_SingleEnded(0);
+            adc1 = ads.readADC_SingleEnded(1);
+            adc2 = ads.readADC_SingleEnded(2);
+    }
+    else{
+      continue;
+    }
+    udp.beginPacket(IPAddress(192,168,5,173),5005);
     udp.write('c');
     udp.write((uint8_t)(adc0 >> 8));
     udp.write((uint8_t)(adc0));
@@ -81,8 +105,8 @@ void TaskSendChannelData(void *pvParameters)  // This is a task.
     udp.write((uint8_t)(adc1));
     udp.write((uint8_t)(adc2 >> 8));
     udp.write((uint8_t)(adc2));
-    result = udp.endPacket();
-    vTaskDelay( 1000 / portTICK_PERIOD_MS ); // wait for one second
+    udp.endPacket();
+    vTaskDelay( 100 / portTICK_PERIOD_MS ); // wait for one second
   }
 }
 
@@ -117,7 +141,13 @@ void setup() {
   // ads.setGain(GAIN_SIXTEEN);    // 16x gain  +/- 0.256V  1 bit = 0.125mV  0.0078125mV
   
   ads.begin();
-  
+
+  /*set all servopos to 128 aka the middle*/ //TODO: kan dit niet in de init ?
+  for(int i=0; i<7;i++){
+    servoPos[i]=128;
+  }
+  lock = xSemaphoreCreateBinary();
+  Wire.begin(21,22);
   xTaskCreate(
     TaskBlink
     ,  "Blink"   // A name just for humans
@@ -136,6 +166,13 @@ void setup() {
     xTaskCreate(
     TaskReceiveCommands
     ,  "ReceiveCommands"   // A name just for humans
+    ,  4096  // Stack size
+    ,  NULL
+    ,  5  // priority
+    ,  NULL );
+    xTaskCreate(
+    TaskUpdateServos
+    ,  "TaskUpdateServos"   // A name just for humans
     ,  4096  // Stack size
     ,  NULL
     ,  5  // priority
