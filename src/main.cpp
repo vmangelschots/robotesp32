@@ -4,13 +4,30 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/semphr.h>
 #include <WiFiManager.h>
+#include <Tone32.h>
+
+#define BUZZER 12
 
 Adafruit_ADS1015 ads = Adafruit_ADS1015(0x48);
 WiFiManager wm;
 WiFiUDP udp;
 WiFiUDP udp_server;
 SemaphoreHandle_t lock;
+
 int servoPos[9];
+
+
+void playHello() {
+ tone(BUZZER, 262, 250,1); // plays C4
+ delay(300);
+ tone(BUZZER, 330, 250,1); // plays E4
+ delay(300);
+ tone(BUZZER, 392, 250,1); // plays G4
+ delay(300);
+ tone(BUZZER, 523, 500,1); // plays C5
+ delay(550);
+}
+
 
 void TaskUpdateServos(void *pvParameters)
 {
@@ -101,15 +118,22 @@ void TaskSendChannelData(void *pvParameters) // This is a task.
     {
 
       adc0 = ads.readADC_SingleEnded(0);
+      Serial.print(Wire.lastError());
       adc1 = ads.readADC_SingleEnded(1);
       adc2 = ads.readADC_SingleEnded(2);
+      Serial.print("voltage rails are at ");
+      Serial.print(adc0);
+      Serial.print(" ");
+      Serial.print(adc1);
+      Serial.print(" ");
+      Serial.println(adc2);
       xSemaphoreGive(lock);
     }
     else
     {
       continue;
     }
-    udp.beginPacket(IPAddress(192, 168, 5, 2), 5005);
+    udp.beginPacket(IPAddress(192, 168, 5, 173), 5005);
     udp.write('c');
     udp.write((uint8_t)(adc0 >> 8));
     udp.write((uint8_t)(adc0));
@@ -118,7 +142,7 @@ void TaskSendChannelData(void *pvParameters) // This is a task.
     udp.write((uint8_t)(adc2 >> 8));
     udp.write((uint8_t)(adc2));
     udp.endPacket();
-    vTaskDelay(100 / portTICK_PERIOD_MS); // wait for one second
+    vTaskDelay(1000 / portTICK_PERIOD_MS); // wait for one second
   }
 }
 
@@ -134,6 +158,8 @@ void setup()
   {
     servoPos[i] = 128;
   }
+  Serial.println("Play hello");
+  //playHello();
   lock = xSemaphoreCreateBinary();
   xSemaphoreGive(lock);
   xTaskCreate(
@@ -174,3 +200,4 @@ void setup()
 void loop()
 {
 }
+
