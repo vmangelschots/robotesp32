@@ -8,7 +8,8 @@
 
 #define BUZZER 12
 
-Adafruit_ADS1015 ads = Adafruit_ADS1015(0x48);
+Adafruit_ADS1015 ads_rails = Adafruit_ADS1015(0x48);
+Adafruit_ADS1015 ads_battery = Adafruit_ADS1015(0x49);
 WiFiManager wm;
 WiFiUDP udp;
 WiFiUDP udp_server;
@@ -113,20 +114,17 @@ void TaskSendChannelData(void *pvParameters) // This is a task.
   for (;;) // A Task shall never return or exit.
   {
 
-    int16_t adc0, adc1, adc2;
+    int16_t adc0, adc1, adc2,cell_1,cell_2,cell_3;
     if (xSemaphoreTake(lock, (10 / portTICK_PERIOD_MS)) == pdTRUE)
     {
 
-      adc0 = ads.readADC_SingleEnded(0);
-      Serial.print(Wire.lastError());
-      adc1 = ads.readADC_SingleEnded(1);
-      adc2 = ads.readADC_SingleEnded(2);
-      Serial.print("voltage rails are at ");
-      Serial.print(adc0);
-      Serial.print(" ");
-      Serial.print(adc1);
-      Serial.print(" ");
-      Serial.println(adc2);
+      adc0 = ads_rails.readADC_SingleEnded(0);
+      adc1 = ads_rails.readADC_SingleEnded(1);
+      adc2 = ads_rails.readADC_SingleEnded(2);
+      cell_1 = ads_battery.readADC_SingleEnded(0);
+      cell_2 = ads_battery.readADC_SingleEnded(1);
+      cell_3 = ads_battery.readADC_SingleEnded(2);
+      Serial.println(cell_1);
       xSemaphoreGive(lock);
     }
     else
@@ -141,6 +139,12 @@ void TaskSendChannelData(void *pvParameters) // This is a task.
     udp.write((uint8_t)(adc1));
     udp.write((uint8_t)(adc2 >> 8));
     udp.write((uint8_t)(adc2));
+    udp.write((uint8_t)(cell_1 >> 8));
+    udp.write((uint8_t)(cell_1));
+    udp.write((uint8_t)(cell_2 >> 8));
+    udp.write((uint8_t)(cell_2));
+    udp.write((uint8_t)(cell_3 >> 8));
+    udp.write((uint8_t)(cell_3));
     udp.endPacket();
     vTaskDelay(1000 / portTICK_PERIOD_MS); // wait for one second
   }
@@ -149,8 +153,10 @@ void TaskSendChannelData(void *pvParameters) // This is a task.
 void setup()
 {
   Serial.begin(115200);
-  ads.setGain(GAIN_TWOTHIRDS); // 2/3x gain +/- 6.144V  1 bit = 3mV      0.1875mV (default)
-  ads.begin();
+  ads_rails.setGain(GAIN_TWOTHIRDS); // 2/3x gain +/- 6.144V  1 bit = 3mV      0.1875mV (default)
+  ads_rails.begin();
+  ads_battery.setGain(GAIN_TWOTHIRDS); // 2/3x gain +/- 6.144V  1 bit = 3mV      0.1875mV (default)
+  ads_battery.begin();
   /* start the wifi*/
   wm.autoConnect("WALL-E", "walleconfig");
   /*set all servopos to 128 aka the middle*/ //TODO: kan dit niet in de init ?
