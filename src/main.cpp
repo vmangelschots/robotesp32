@@ -5,6 +5,7 @@
 #include <freertos/semphr.h>
 #include <WiFiManager.h>
 #include <Tone32.h>
+#include <ESPmDNS.h>
 
 #define BUZZER 12
 
@@ -159,6 +160,10 @@ void setup()
   ads_battery.begin();
   /* start the wifi*/
   wm.autoConnect("WALL-E", "walleconfig");
+  if(!MDNS.begin("walle")){
+    Serial.println("Error while starting mdns");
+  }
+  MDNS.addService("walle","udp",5006);
   /*set all servopos to 128 aka the middle*/ //TODO: kan dit niet in de init ?
   for (int i = 0; i < 9; i++)
   {
