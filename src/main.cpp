@@ -15,7 +15,8 @@ WiFiManager wm;
 WiFiUDP udp;
 WiFiUDP udp_server;
 SemaphoreHandle_t lock;
-
+boolean serverAddressKnown = false;
+IPAddress server_addr;
 int servoPos[9];
 
 
@@ -85,19 +86,25 @@ void TaskReceiveCommands(void *pvParameters)
       {
         packetBuffer[len] = 0;
       }
-      if (packetBuffer[0] == 'S')
+
+      switch (packetBuffer[0])
       {
-        if (len != 10)
-        {
-          Serial.println("invallid servo command received");
-        }
-        else
-        {
-          for (int i = 1; i < 10; i++)
+        case 'S':
+          if (len != 10)
           {
-            servoPos[i - 1] = packetBuffer[i];
+            Serial.println("invallid servo command received");
           }
-        }
+          else
+          {
+            for (int i = 1; i < 10; i++)
+            {
+              servoPos[i - 1] = packetBuffer[i];
+            }
+          }
+          break;
+        case 'C':
+          Serial.println("connection string received");
+          Serial.println(packetBuffer);
       }
       vTaskDelay(50 / portTICK_PERIOD_MS); // wait for one seconds
     }
@@ -132,21 +139,23 @@ void TaskSendChannelData(void *pvParameters) // This is a task.
     {
       continue;
     }
-    udp.beginPacket(IPAddress(192, 168, 5, 173), 5005);
-    udp.write('c');
-    udp.write((uint8_t)(adc0 >> 8));
-    udp.write((uint8_t)(adc0));
-    udp.write((uint8_t)(adc1 >> 8));
-    udp.write((uint8_t)(adc1));
-    udp.write((uint8_t)(adc2 >> 8));
-    udp.write((uint8_t)(adc2));
-    udp.write((uint8_t)(cell_1 >> 8));
-    udp.write((uint8_t)(cell_1));
-    udp.write((uint8_t)(cell_2 >> 8));
-    udp.write((uint8_t)(cell_2));
-    udp.write((uint8_t)(cell_3 >> 8));
-    udp.write((uint8_t)(cell_3));
-    udp.endPacket();
+    if(serverAddressKnown){
+      udp.beginPacket(IPAddress(192, 168, 5, 173), 5005);
+      udp.write('c');
+      udp.write((uint8_t)(adc0 >> 8));
+      udp.write((uint8_t)(adc0));
+      udp.write((uint8_t)(adc1 >> 8));
+      udp.write((uint8_t)(adc1));
+      udp.write((uint8_t)(adc2 >> 8));
+      udp.write((uint8_t)(adc2));
+      udp.write((uint8_t)(cell_1 >> 8));
+      udp.write((uint8_t)(cell_1));
+      udp.write((uint8_t)(cell_2 >> 8));
+      udp.write((uint8_t)(cell_2));
+      udp.write((uint8_t)(cell_3 >> 8));
+      udp.write((uint8_t)(cell_3));
+      udp.endPacket();
+    }
     vTaskDelay(1000 / portTICK_PERIOD_MS); // wait for one second
   }
 }
