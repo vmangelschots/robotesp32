@@ -17,6 +17,7 @@ WiFiUDP udp_server;
 SemaphoreHandle_t lock;
 boolean serverAddressKnown = false;
 IPAddress server_addr;
+uint16_t server_port;
 int servoPos[9];
 
 
@@ -86,7 +87,8 @@ void TaskReceiveCommands(void *pvParameters)
       {
         packetBuffer[len] = 0;
       }
-
+      Serial.print("The control chaaracter is ");
+      Serial.println(packetBuffer[0]);
       switch (packetBuffer[0])
       {
         case 'S':
@@ -104,7 +106,17 @@ void TaskReceiveCommands(void *pvParameters)
           break;
         case 'C':
           Serial.println("connection string received");
-          Serial.println(packetBuffer);
+          uint8_t first,second,third,fourth;
+          first = packetBuffer[1];
+          second = packetBuffer[2];
+          third = packetBuffer[3];
+          fourth = packetBuffer[4];
+          server_port = 0;
+          server_addr = IPAddress(first,second,third,fourth);
+          memcpy(&server_port, &packetBuffer[5],sizeof(uint16_t));
+          Serial.print("the port is ");
+          Serial.println(server_port);
+          serverAddressKnown= true;
       }
       vTaskDelay(50 / portTICK_PERIOD_MS); // wait for one seconds
     }
@@ -140,7 +152,7 @@ void TaskSendChannelData(void *pvParameters) // This is a task.
       continue;
     }
     if(serverAddressKnown){
-      udp.beginPacket(IPAddress(192, 168, 5, 173), 5005);
+      udp.beginPacket(server_addr, server_port);
       udp.write('c');
       udp.write((uint8_t)(adc0 >> 8));
       udp.write((uint8_t)(adc0));
