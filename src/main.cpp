@@ -87,7 +87,7 @@ void TaskReceiveCommands(void *pvParameters)
       {
         packetBuffer[len] = 0;
       }
-      Serial.print("The control chaaracter is ");
+      Serial.print("The control character is ");
       Serial.println(packetBuffer[0]);
       switch (packetBuffer[0])
       {
@@ -111,9 +111,9 @@ void TaskReceiveCommands(void *pvParameters)
           second = packetBuffer[2];
           third = packetBuffer[3];
           fourth = packetBuffer[4];
-          server_port = 0;
+          server_port = packetBuffer[6];
+          server_port += (packetBuffer[5]<<8);
           server_addr = IPAddress(first,second,third,fourth);
-          memcpy(&server_port, &packetBuffer[5],sizeof(uint16_t));
           Serial.print("the port is ");
           Serial.println(server_port);
           serverAddressKnown= true;
