@@ -50,7 +50,7 @@ void TaskUpdateServos(void *pvParameters)
       Wire.endTransmission();
       xSemaphoreGive(lock);
     }
-    vTaskDelay(50 / portTICK_PERIOD_MS);
+    vTaskDelay(20 / portTICK_PERIOD_MS);
   }
 }
 
@@ -87,8 +87,8 @@ void TaskReceiveCommands(void *pvParameters)
       {
         packetBuffer[len] = 0;
       }
-      Serial.print("The control character is ");
-      Serial.println(packetBuffer[0]);
+      // Serial.print("The control chaaracter is ");
+      // Serial.println(packetBuffer[0]);
       switch (packetBuffer[0])
       {
         case 'S':
@@ -106,6 +106,7 @@ void TaskReceiveCommands(void *pvParameters)
           break;
         case 'C':
           Serial.println("connection string received");
+          Serial.write(packetBuffer);
           uint8_t first,second,third,fourth;
           first = packetBuffer[1];
           second = packetBuffer[2];
@@ -118,7 +119,7 @@ void TaskReceiveCommands(void *pvParameters)
           Serial.println(server_port);
           serverAddressKnown= true;
       }
-      vTaskDelay(50 / portTICK_PERIOD_MS); // wait for one seconds
+      vTaskDelay(20 / portTICK_PERIOD_MS); // wait for one seconds
     }
     else
     {
